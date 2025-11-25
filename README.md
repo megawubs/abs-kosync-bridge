@@ -83,7 +83,7 @@ services:
 <summary> 2. Docker Build </summary>
 
 #### Download the project
-   `git clone [https://github.com/j-lich/abs-kosync-bridge.git](https://github.com/j-lich/abs-kosync-bridge.git)`
+   `git clone https://github.com/j-lich/abs-kosync-bridge.git`
    
    `cd abs-kosync-bridge`
 
