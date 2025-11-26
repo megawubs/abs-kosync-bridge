@@ -7,6 +7,8 @@ import gc
 from pathlib import Path
 from faster_whisper import WhisperModel
 import requests
+import ffmpeg
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,76 @@ class AudioTranscriber:
             logger.error(f"Failed to get duration for {filepath}: {e}")
             return 0.0
 
+    def get_audio_duration(self, file_path):
+        """Returns the duration of the audio file in seconds using ffprobe."""
+        cmd = [
+            'ffprobe', 
+            '-v', 'error', 
+            '-show_entries', 'format=duration', 
+            '-of', 'default=noprint_wrappers=1:nokey=1', 
+            str(file_path)
+        ]
+        try:
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            return float(result.stdout.strip())
+        except (ValueError, subprocess.CalledProcessError):
+            logger.error(f"Could not determine duration for {file_path}")
+            return 0.0
+
+    ## NOTE TO FUTURE ME - 45mins is hard coded - add to environment variables for user vconfiguration
+    def split_audio_file(self, file_path, target_max_duration_sec=2700): # 2700s = 45 mins
+        """
+        Checks if file exceeds max duration. If so, splits it into even chunks 
+        and returns list of new paths. If not, returns list containing original path.
+        """
+        duration = self.get_audio_duration(file_path)
+        
+        # If file is within limits, return original
+        if duration <= target_max_duration_sec:
+            return [file_path]
+
+        logger.info(f"⚠️ File {file_path.name} is {duration/60:.2f}m. Splitting to avoid RAM overload...")
+
+        # Calculate how many parts we need to keep them under the limit
+        num_parts = math.ceil(duration / target_max_duration_sec)
+        
+        # Calculate the exact duration for each even chunk
+        segment_duration = duration / num_parts
+        
+        new_files = []
+        base_name = file_path.stem
+        extension = file_path.suffix
+
+        for i in range(num_parts):
+            start_time = i * segment_duration
+            new_filename = f"{base_name}_split_{i+1:03d}{extension}"
+            new_path = file_path.parent / new_filename
+            
+            # FFmpeg command to slice audio
+            # -ss : Start time
+            # -t  : Duration of the clip
+            # -c copy : Stream copy (FAST, no re-encoding, low RAM)
+            # Note: If precise cutting is required and -c copy is inaccurate, 
+            # remove '-c', 'copy' to re-encode (slower but precise).
+            cmd = [
+                'ffmpeg', '-y',
+                '-i', str(file_path),
+                '-ss', str(start_time),
+                '-t', str(segment_duration),
+                '-c', 'copy',  
+                '-loglevel', 'error',
+                str(new_path)
+            ]
+            
+            subprocess.run(cmd, check=True)
+            new_files.append(new_path)
+            logger.info(f"  Created chunk {i+1}/{num_parts}: {new_filename} ({segment_duration/60:.2f}m)")
+
+        # Delete the original large file to save disk space
+        file_path.unlink() 
+        
+        return new_files
+
     def process_audio(self, abs_id, audio_urls):
         output_file = self.transcripts_dir / f"{abs_id}.json"
         
@@ -47,6 +119,8 @@ class AudioTranscriber:
         book_cache_dir.mkdir(parents=True, exist_ok=True)
 
         downloaded_files = []
+        ## Note to future me - this hard coded!
+        MAX_DURATION_SECONDS = 45 * 60  # 45 minutes
 
         try:
             # --- PHASE 1: DOWNLOAD ---
@@ -68,8 +142,12 @@ class AudioTranscriber:
                     
                     if not local_path.exists() or local_path.stat().st_size == 0:
                         raise ValueError(f"File {local_path} is empty or missing.")
-                        
-                    downloaded_files.append(local_path)
+
+                    # --- PHASE 1.5: Identify if audio exceeds 45min limit and chunk if necessary ---
+                    # Check length and split if necessary before appending
+                    final_parts = self.split_audio_file(local_path, MAX_DURATION_SECONDS)
+                    
+                    downloaded_files.extend(local_path)
                     
                 except Exception as e:
                     logger.error(f"❌ Failed to download Part {idx + 1}: {e}")
