@@ -206,21 +206,43 @@ class EbookParser:
             #             logger.info(f"   ✅ Fuzzy match successful (Score: {score:.1f}).")
             #             match_index = full_text.find(matched_string)
            
-            # 3. Fuzzy Match (Revised)
-            if match_index == -1:
-                logger.info("   ...Normalized failed. Trying Fuzzy Match with Levenshtein distance...")
+            # # 3. Fuzzy Match (Revised)
+            # if match_index == -1:
+            #     logger.info("   ...Normalized failed. Trying Fuzzy Match with Levenshtein distance...")
                 
-                max_errors = int(len(search_phrase) * 0.2) # Allow 20% error rate
+            #     max_errors = int(len(search_phrase) * 0.2) # Allow 20% error rate
                 
-                matches = find_near_matches(search_phrase, full_text, max_l_dist=max_errors)
+            #     matches = find_near_matches(search_phrase, full_text, max_l_dist=max_errors)
             
-                if matches:
-                    # Get the best match (lowest distance / errors)
-                    best_match = min(matches, key=lambda x: x.dist)
+            #     if matches:
+            #         # Get the best match (lowest distance / errors)
+            #         best_match = min(matches, key=lambda x: x.dist)
                     
-                    logger.info(f"   ✅ Fuzzy match successful (Dist: {best_match.dist}).")
-                    match_index = best_match.start            
+            #         logger.info(f"   ✅ Fuzzy match successful (Dist: {best_match.dist}).")
+            #         match_index = best_match.start            
 
+            # 3. Fuzzy Match (RapidFuzz Optimized)
+            if match_index == -1:
+                logger.info("   ...Normalized failed. Trying Fuzzy Match with RapidFuzz...")
+
+                # RapidFuzz uses a 0-100 score. 
+                # ~75 is roughly equivalent to allowing 20-25% errors.
+                cutoff_score = 75 
+
+                # partial_ratio_alignment finds the best alignment of the search_phrase 
+                # within the full_text.
+                # Returns an object with: score, src_start, src_end, dest_start, dest_end
+                alignment = rapidfuzz.fuzz.partial_ratio_alignment(
+                    search_phrase, 
+                    full_text, 
+                    score_cutoff=cutoff_score
+                )
+
+                if alignment:
+                    logger.info(f"   ✅ Fuzzy match successful (Score: {alignment.score:.1f}).")
+                    # 'dest_start' is the index where the match starts in full_text
+                    match_index = alignment.dest_start
+            
             if match_index != -1:
                 percentage = match_index / total_len
                 xpath = None
