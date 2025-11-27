@@ -2,6 +2,7 @@ import os
 import requests
 import logging
 import time
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +105,7 @@ class KoSyncClient:
     def __init__(self):
         self.base_url = os.environ.get("KOSYNC_SERVER", "").rstrip('/')
         self.user = os.environ.get("KOSYNC_USER")
-        self.auth_token = os.environ.get("KOSYNC_KEY", "")
+        self.auth_token = hashlib.md5(os.environ.get("KOSYNC_KEY", ""))
 
     def check_connection(self):
         url = f"{self.base_url}/healthcheck"
