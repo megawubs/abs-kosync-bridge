@@ -128,7 +128,10 @@ class AudioTranscriber:
             
             for idx, audio_data in enumerate(audio_urls):
                 stream_url = audio_data['stream_url']
-                local_filename = f"part_{idx:03d}.mp3"
+                extension = audio_data.get('ext', '.mp3')
+                local_filename_old = f"part_{idx:03d}.mp3"
+                local_filename = f"part_{idx:03d}{extension}"
+                logger.debug(f"NEW {local_filename} -- {local_filename_old}")
                 local_path = book_cache_dir / local_filename
                 
                 logger.info(f"   Downloading Part {idx + 1}/{len(audio_urls)}...")
