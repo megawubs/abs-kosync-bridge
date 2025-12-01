@@ -69,12 +69,12 @@ class ABSClient:
                 audio_files = data.get('media', {}).get('audioFiles', [])
                 for af in audio_files:
                     stream_url = f"{self.base_url}/api/items/{item_id}/file/{af['ino']}"
-                    stream_url += f"?token={self.token}" 
-                    
+                    stream_url += f"?token={self.token}"
+
                     extension = af.get('metadata', {}).get('ext') or 'mp3'
                     if not extension.startswith('.'):
                         extension = f".{extension}"
-                    
+
                     files.append({
                         "stream_url": stream_url,
                         "ext": extension
@@ -86,6 +86,67 @@ class ABSClient:
         except Exception as e:
             logger.error(f"Error getting audio files: {e}")
             return []
+
+    def get_ebook_file(self, item_id):
+        """
+        Fetches the ebook file info and downloads it if present.
+        Returns dict with ebook info or None if not available.
+        """
+        url = f"{self.base_url}/api/items/{item_id}"
+        try:
+            r = requests.get(url, headers=self.headers)
+            if r.status_code == 200:
+                data = r.json()
+                ebook_file = data.get('media', {}).get('ebookFile')
+
+                if ebook_file:
+                    # Extract ebook file info
+                    ebook_ino = ebook_file.get('ino')
+                    ebook_metadata = ebook_file.get('metadata', {})
+                    filename = ebook_metadata.get('filename', 'ebook.epub')
+
+                    # Build download URL
+                    download_url = f"{self.base_url}/api/items/{item_id}/file/{ebook_ino}"
+                    download_url += f"?token={self.token}"
+
+                    return {
+                        "filename": filename,
+                        "download_url": download_url,
+                        "ino": ebook_ino,
+                        "metadata": ebook_metadata
+                    }
+            return None
+        except Exception as e:
+            logger.error(f"Error getting ebook file: {e}")
+            return None
+
+    def download_ebook_file(self, item_id, target_dir):
+        """
+        Downloads the ebook file to target directory.
+        Returns Path object of downloaded file or None.
+        """
+        from pathlib import Path
+
+        ebook_info = self.get_ebook_file(item_id)
+        if not ebook_info:
+            return None
+
+        target_path = Path(target_dir) / ebook_info['filename']
+
+        # Download the file
+        try:
+            logger.info(f"Downloading ebook: {ebook_info['filename']}")
+            with requests.get(ebook_info['download_url'], stream=True, timeout=120) as r:
+                r.raise_for_status()
+                with open(target_path, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+
+            logger.info(f"✅ Ebook downloaded to: {target_path}")
+            return target_path
+        except Exception as e:
+            logger.error(f"Failed to download ebook: {e}")
+            return None
 
     def get_progress(self, item_id):
         url = f"{self.base_url}/api/me/progress/{item_id}"
