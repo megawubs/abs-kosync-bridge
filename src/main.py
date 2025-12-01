@@ -108,7 +108,7 @@ class SyncManager:
         if not title: title = item.get('title')
         return title or "Unknown Title"
 
-    def match_wizard(self):
+    def match_wizard(self, ebooks_in_abs: bool = False ):
         print("\n=== Matching Wizard (Queue Mode) ===")
         print("Fetching audiobooks from server...")
         audiobooks = self.abs_client.get_all_audiobooks()
@@ -116,61 +116,88 @@ class SyncManager:
             print("❌ No audiobooks found.")
             return
 
-        ebooks = [f for f in BOOKS_DIR.glob("**/*.epub")] 
-        if not ebooks:
-            print("❌ No ebooks found in /books.")
-            return
+        if ebooks_in_abs:
+            # Filter to only audiobooks that have an ebook file
+            audiobooks = [
+                ab for ab in audiobooks
+                if ab.get('media', {}).get('ebookFormat') is not None
+            ]
+            if not audiobooks:
+                print("❌ No audiobooks with attached ebook files found.")
+                return
+            print(f"Found {len(audiobooks)} audiobooks with ebook files attached.")
+        else:
+            ebooks = [f for f in BOOKS_DIR.glob("**/*.epub")]
+            if not ebooks:
+                print("❌ No ebooks found in /books.")
+                return
 
         search_term = input("\nFilter by title (Press Enter to view all): ").strip().lower()
 
         if search_term:
             # Filter Audiobooks based on title
             filtered_audiobooks = [
-                ab for ab in audiobooks 
+                ab for ab in audiobooks
                 if search_term in self._get_abs_title(ab).lower()
             ]
-            # Filter Ebooks based on filename
-            filtered_ebooks = [
-                eb for eb in ebooks 
-                if search_term in eb.name.lower()
-            ]
+
+            if not ebooks_in_abs:
+                # Filter Ebooks based on filename
+                filtered_ebooks = [
+                    eb for eb in ebooks
+                    if search_term in eb.name.lower()
+                ]
         else:
             # If blank, keep lists as is
             filtered_audiobooks = audiobooks
-            filtered_ebooks = ebooks
-        
+            if not ebooks_in_abs:
+                filtered_ebooks = ebooks
+
         if not filtered_audiobooks:
             print(f"❌ No audiobooks found matching term: '{search_term}'")
             return
 
-        if not filtered_ebooks:
+        if not ebooks_in_abs and not filtered_ebooks:
             print(f"❌ No ebooks found matching term: '{search_term}'")
             return
-        
-        print(f"\n--- Available Audiobooks ({len(audiobooks)} found) ---")
+
+        print(f"\n--- Available Audiobooks ({len(filtered_audiobooks)} found) ---")
         for idx, ab in enumerate(filtered_audiobooks):
             title = self._get_abs_title(ab)
-            print(f"{idx + 1}. {title} (ID: {ab.get('id')})")
-        
+            ebook_indicator = " [Has Ebook]" if ab.get('media', {}).get('ebookFile') else ""
+            print(f"{idx + 1}. {title}{ebook_indicator} (ID: {ab.get('id')})")
+
         try:
             ab_choice = int(input("\nSelect Audiobook Number: ")) - 1
             selected_ab = filtered_audiobooks[ab_choice]
-        except (ValueError, IndexError): return
+        except (ValueError, IndexError):
+            return
 
-        print("\n--- Available Ebooks ---")
-        for idx, eb in enumerate(filtered_ebooks):
-            print(f"{idx + 1}. {eb.name}")
-        
-        try:
-            eb_choice = int(input("\nSelect Ebook Number: ")) - 1
-            selected_eb = filtered_ebooks[eb_choice]
-        except (ValueError, IndexError): return
+        if ebooks_in_abs:
+            # Download the ebook file from ABS
+            print("\n📥 Downloading ebook file from ABS...")
+            ebook_path = self.abs_client.download_ebook_file(selected_ab['id'], BOOKS_DIR)
+            if not ebook_path:
+                print("❌ Failed to download ebook file.")
+                return
+            selected_eb = ebook_path
+        else:
+            # Original flow - select from disk
+            print("\n--- Available Ebooks ---")
+            for idx, eb in enumerate(filtered_ebooks):
+                print(f"{idx + 1}. {eb.name}")
+
+            try:
+                eb_choice = int(input("\nSelect Ebook Number: ")) - 1
+                selected_eb = filtered_ebooks[eb_choice]
+            except (ValueError, IndexError):
+                return
 
         kosync_doc_id = self.ebook_parser.get_kosync_id(selected_eb)
         final_title = self._get_abs_title(selected_ab)
 
         print(f"\nQueuing '{final_title}' <-> '{selected_eb.name}'")
-        
+
         mapping = {
             "abs_id": selected_ab['id'],
             "abs_title": final_title,
@@ -364,6 +391,7 @@ class SyncManager:
 if __name__ == "__main__":
     manager = SyncManager()
     if len(sys.argv) > 1 and sys.argv[1] == "match":
-        manager.match_wizard()
+        ebooks_in_abs = len(sys.argv) > 2 and sys.argv[2] == '--ebooks-in-abs'
+        manager.match_wizard(ebooks_in_abs=ebooks_in_abs)
     else:
         manager.run_daemon()
