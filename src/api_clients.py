@@ -176,9 +176,12 @@ class KoSyncClient:
         self.user = os.environ.get("KOSYNC_USER")
         self.auth_token = hashlib.md5(os.environ.get("KOSYNC_KEY", "").encode('utf-8')).hexdigest()
 
+        logger.debug(f"KOSYNC_USER: {self.user}")
+        logger.debug(f"KOSYNC_KEY: {self.auth_token}")
+
     def check_connection(self):
         url = f"{self.base_url}/healthcheck"
-        headers = {"x-auth-user": self.user, "x-auth-key": self.auth_token, "accept": "application/json"}
+        headers = {"x-auth-user": self.user, "x-auth-key": self.auth_token, "accept": "application/vnd.koreader.v1+json"}
         try:
             r = requests.get(url, timeout=5)
             if r.status_code == 200:
@@ -198,11 +201,13 @@ class KoSyncClient:
 
     def get_progress(self, doc_id):
         headers = {"x-auth-user": self.user, "x-auth-key": self.auth_token, 'accept': 'application/vnd.koreader.v1+json'}
+        logger.info(f" Getting KoSync progress for doc_id: {doc_id}")
         url = f"{self.base_url}/syncs/progress/{doc_id}"
         try:
             r = requests.get(url, headers=headers)
             if r.status_code == 200:
                 data = r.json()
+                logger.debug(f" Progress: {data}")
                 return float(data.get('percentage', 0))
         except Exception:
             pass
@@ -211,6 +216,7 @@ class KoSyncClient:
     def update_progress(self, doc_id, percentage, xpath=None):
         headers = {"x-auth-user": self.user, "x-auth-key": self.auth_token, 'accept': 'application/vnd.koreader.v1+json', 'content-type': 'application/json'}
         url = f"{self.base_url}/syncs/progress"
+        logger.info(f" Updating KoSync progress for doc_id: {doc_id}")
         
         # Use XPath if generated, otherwise fallback to percentage string
         progress_val = xpath if xpath else f"{percentage:.2%}"
@@ -223,6 +229,8 @@ class KoSyncClient:
             "device_id": "abs-sync-bot", 
             "timestamp": int(time.time())
         }
+
+        logger.info(f"Payload: {payload}")
         
         try:
             # Reverted to simple PUT logic
