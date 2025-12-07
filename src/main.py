@@ -225,7 +225,7 @@ class SyncManager:
                 logger.error(f"Fetch failed for {abs_title}: {e}")
                 continue
 
-            prev_state = self.state.get(abs_id, {"abs_ts": 0, "kosync_pct": 0, "last_updated": 0})
+            prev_state = self.state.get(abs_id, {"abs_ts": 0, "kosync_pct": 0, "last_updated": 0, "kosync_index": 0})
             
             abs_delta = abs(abs_progress - prev_state['abs_ts'])
             kosync_delta = abs(kosync_progress - prev_state['kosync_pct'])
