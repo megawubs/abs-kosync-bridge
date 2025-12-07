@@ -277,13 +277,13 @@ class SyncManager:
                             logger.info(f"   ✅ Match at {matched_pct:.2%}. Sending Update...")
 
                             ## DEBUG. WIP function, to measure change in position based on characters not %
-                            index_delta = matched_index - prev_state['kosync_index']
+                            index_delta = abs(matched_index - prev_state['kosync_index'])
                             logger.info(f"   🪲 Index delta of {index_delta}.")
                             
                             self.kosync_client.update_progress(kosync_id, matched_pct, xpath)
                             prev_state['abs_ts'] = abs_progress
                             prev_state['kosync_pct'] = matched_pct
-                            prev_state['kosync_index'] = matched_index
+                            prev_state['kosync_index'] = index_delta
                             updated_ok = True
                         else:
                             logger.error("   ❌ Ebook text match FAILED.")
