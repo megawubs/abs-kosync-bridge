@@ -226,7 +226,12 @@ class SyncManager:
                 continue
 
             prev_state = self.state.get(abs_id, {"abs_ts": 0, "kosync_pct": 0, "last_updated": 0, "kosync_index": 0})
-            
+
+            ## Define and set defaults if empty.
+            defaults = {"abs_ts": 0, "kosync_pct": 0, "last_updated": 0, "kosync_index": 0}
+            existing_data = self.state.get(abs_id, {})
+            prev_state = defaults | existing_data
+                
             abs_delta = abs(abs_progress - prev_state['abs_ts'])
             kosync_delta = abs(kosync_progress - prev_state['kosync_pct'])
             
@@ -278,6 +283,7 @@ class SyncManager:
 
                             ## DEBUG. WIP function, to measure change in position based on characters not %
                             index_delta = abs(matched_index - prev_state['kosync_index'])
+                            #index_delta = abs(matched_index - prev_state.get('kosync_index', 0))
                             logger.info(f"   🪲 Index delta of {index_delta}.")
                             
                             self.kosync_client.update_progress(kosync_id, matched_pct, xpath)
