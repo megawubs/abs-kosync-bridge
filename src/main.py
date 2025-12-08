@@ -15,6 +15,15 @@ from ebook_utils import EbookParser
 import logging
 import os
 
+# Add trace level logging
+TRACE_LEVEL_NUM = 5
+logging.addLevelName(TRACE_LEVEL_NUM, "TRACE")
+logging.TRACE = TRACE_LEVEL_NUM
+def trace(self, message, *args, **kws):
+    if self.isEnabledFor(TRACE_LEVEL_NUM):
+        self._log(TRACE_LEVEL_NUM, message, args, **kws)
+
+logging.Logger.trace = trace
 
 # Read user defined debug lecel, default to INFO. Check its an acual level other wise default INFO
 env_log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
@@ -23,7 +32,11 @@ try:
 except AttributeError:
     log_level = logging.INFO 
 
-logging.basicConfig(level=log_level, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=log_level, 
+    format='%(asctime)s %(levelname)s: %(message)s', 
+    datefmt='%H:%M:%S'
+)
 logger = logging.getLogger(__name__)
 
 DATA_DIR = Path("/data")
@@ -241,25 +254,25 @@ class SyncManager:
 
             # Log ignored changes for debugging
             if abs_delta > 0 and not abs_changed:
-                logger.info(f"   ✋ ABS delta {abs_delta:.2f}s (Below threshold {self.delta_abs_thresh}s): {abs_title}")
+                logger.info(f"  ✋ ABS delta {abs_delta:.2f}s (Below threshold {self.delta_abs_thresh}s): {abs_title}")
                 prev_state['abs_ts'] = abs_progress   
                 prev_state['last_updated'] = time.time()
                 ## change me
                 prev_state['kosync_index'] = 0
                 self.state[abs_id] = prev_state
                 self._save_state()
-                logger.info("   🤷 State matched to avoid loop.")
+                logger.info("  🤷 State matched to avoid loop.")
             if kosync_delta > 0 and not kosync_changed:
-                logger.info(f"   ✋ KoSync delta {kosync_delta:.4%} (Below threshold {self.delta_kosync_thresh:.2%}): {ebook_filename}")
-                logger.debug(f"   🪲 Attempting to resolve character delta")
+                logger.info(f"  ✋ KoSync delta {kosync_delta:.4%} (Below threshold {self.delta_kosync_thresh:.2%}): {ebook_filename}")
+                logger.debug(f"  🪲 Attempting to resolve character delta")
                 
                 index_delta = self.ebook_parser.get_character_delta(ebook_filename, prev_state['kosync_pct'], kosync_progress)
-                logger.debug(f"   🪲 KoSync character delta {index_delta}")
+                logger.debug(f"  🪲 KoSync character delta {index_delta}")
 
                 ## Hardcoded for testing! Adjust for new env variable.
                 if index_delta > 2000:
                     kosync_changed = True
-                    logger.debug(f"   🪲 KoSync character delta larger than threshhold!")
+                    logger.debug(f"  🪲 KoSync character delta larger than threshhold!")
                 else:  
                     prev_state['kosync_pct'] = kosync_progress
                     prev_state['last_updated'] = time.time()
@@ -267,17 +280,17 @@ class SyncManager:
                     prev_state['kosync_index'] = 0
                     self.state[abs_id] = prev_state
                     self._save_state()
-                    logger.info("   🤷 State matched to avoid loop.")
+                    logger.info("  🤷 State matched to avoid loop.")
 
             if not abs_changed and not kosync_changed: continue
 
             logger.info(f"Change detected for '{abs_title}'")
-            logger.info(f"   📊 ABS: {prev_state['abs_ts']:.2f}s -> {abs_progress:.2f}s")
-            logger.info(f"   📊 KoSync: {prev_state['kosync_pct']:.4f}% -> {kosync_progress:.4f}%")
+            logger.info(f"  📊 ABS: {prev_state['abs_ts']:.2f}s -> {abs_progress:.2f}s")
+            logger.info(f"  📊 KoSync: {prev_state['kosync_pct']:.4f}% -> {kosync_progress:.4f}%")
             
             source = "ABS" if abs_changed else "KOSYNC"
             if abs_changed and kosync_changed:
-                logger.warning(f"   ⚠️ Conflict! Defaulting to ABS.")
+                logger.warning(f"  ⚠️ Conflict! Defaulting to ABS.")
                 source = "ABS"
 
             updated_ok = False
@@ -285,16 +298,16 @@ class SyncManager:
                 if source == "ABS":
                     target_text = self.transcriber.get_text_at_time(transcript_path, abs_progress)
                     if target_text:
-                        logger.info(f"   🔍 Searching Ebook for text: '{target_text[:60]}...'")
-                        logger.debug(f"   🔍 Searching Ebook for text: '{target_text}'")
+                        logger.info(f"  🔍 Searching Ebook for text: '{target_text[:60]}...'")
+                        logger.debug(f"  🔍 Searching Ebook for text: '{target_text}'")
                         matched_pct, xpath, matched_index = self.ebook_parser.find_text_location(ebook_filename, target_text)
                         if matched_pct is not None:
-                            logger.info(f"   ✅ Match at {matched_pct:.2%}. Sending Update...")
+                            logger.info(f"  ✅ Match at {matched_pct:.2%}. Sending Update...")
 
                             ## DEBUG. WIP function, to measure change in position based on characters not %
                             index_delta = abs(matched_index - prev_state['kosync_index'])
                             #index_delta = abs(matched_index - prev_state.get('kosync_index', 0))
-                            logger.info(f"   🪲 Index delta of {index_delta}.")
+                            logger.info(f"  🪲 Index delta of {index_delta}.")
                             
                             self.kosync_client.update_progress(kosync_id, matched_pct, xpath)
                             prev_state['abs_ts'] = abs_progress
@@ -302,35 +315,35 @@ class SyncManager:
                             prev_state['kosync_index'] = index_delta
                             updated_ok = True
                         else:
-                            logger.error("   ❌ Ebook text match FAILED.")
+                            logger.error("  ❌ Ebook text match FAILED.")
                 else:
                     target_text = self.ebook_parser.get_text_at_percentage(ebook_filename, kosync_progress)
                     if target_text:
                         logger.info(f"   🔍 Searching Transcript for text: '{target_text[:60]}...'")
                         matched_time = self.transcriber.find_time_for_text(transcript_path, target_text)
                         if matched_time is not None:
-                            logger.info(f"   ✅ Match at {matched_time:.2f}s. Sending Update...")
+                            logger.info(f"  ✅ Match at {matched_time:.2f}s. Sending Update...")
                             self.abs_client.update_progress(abs_id, matched_time)
                             prev_state['abs_ts'] = matched_time
                             prev_state['kosync_pct'] = kosync_progress
                             updated_ok = True
                         else:
-                             logger.error("   ❌ Transcript text match FAILED.")
+                             logger.error("  ❌ Transcript text match FAILED.")
 
                 if updated_ok:
                     prev_state['last_updated'] = time.time()
                     self.state[abs_id] = prev_state
                     self._save_state()
-                    logger.info("   💾 State saved.")
+                    logger.info("  💾 State saved.")
                 else:
                     prev_state['abs_ts'] = abs_progress
                     prev_state['kosync_pct'] = kosync_progress
                     prev_state['last_updated'] = time.time()
                     self.state[abs_id] = prev_state
                     self._save_state()
-                    logger.info("   🤷 State matched to avoid loop.")
+                    logger.info("  🤷 State matched to avoid loop.")
             except Exception as e:
-                logger.error(f"Error syncing {abs_title}: {e}")
+                logger.error(f"   Error syncing {abs_title}: {e}")
 
     def run_daemon(self):
         period = int(os.getenv("SYNC_PERIOD_MINS", 5))
