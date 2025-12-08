@@ -288,3 +288,25 @@ class EbookParser:
         except Exception as e:
             logger.error(f"Error extracting text from {filename}: {e}")
             return None
+
+    def get_character_delta(self, filename, percentage_prev, percentage_new):
+        try:
+            book_path = self._resolve_book_path(filename)
+        
+            full_text, _ = self.extract_text_and_map(book_path)
+            
+            if not full_text: return None
+            
+            total_len = len(full_text)
+            index_prev = int(total_len * percentage_prev)
+            index_new = int(total_len * percentage_new)
+
+            character_delta = abs(index_new - index_prev)
+                        
+            return character_delta
+        except FileNotFoundError:
+            logger.error(f"Book file not found: {filename}")
+            return None
+        except Exception as e:
+            logger.error(f"Error extracting text from {filename}: {e}")
+            return None
