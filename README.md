@@ -80,6 +80,7 @@ services:
       # Loop Prevention: Ignore small changes caused by rounding errors
       - SYNC_DELTA_ABS_SECONDS=60
       - SYNC_DELTA_KOSYNC_PERCENT=1
+      - SYNC_DELTA_KOSYNC_WORDS=400
       
       # --- Matching Logic ---
       - FUZZY_MATCH_THRESHOLD=80
@@ -134,6 +135,7 @@ services:
       # Loop Prevention: Ignore small changes caused by rounding errors
       - SYNC_DELTA_ABS_SECONDS=60
       - SYNC_DELTA_KOSYNC_PERCENT=1
+      - SYNC_DELTA_KOSYNC_WORDS=400
       
       # --- Matching Logic ---
       - FUZZY_MATCH_THRESHOLD=80
@@ -183,6 +185,7 @@ services:
       # Loop Prevention: Ignore small changes caused by rounding errors
       - SYNC_DELTA_ABS_SECONDS=60
       - SYNC_DELTA_KOSYNC_PERCENT=1
+      - SYNC_DELTA_KOSYNC_WORDS=400
       
       # --- Matching Logic ---
       - FUZZY_MATCH_THRESHOLD=80
@@ -241,6 +244,7 @@ KOSYNC_KEY | `None` | Your KoSync password
 SYNC_PERIOD_MINS | `5` | How often to check for progress updates
 SYNC_DELTA_ABS_SECONDS | `60` | Ignore audiobook changes smaller than X seconds (Loop prevention)
 SYNC_DELTA_KOSYNC_PERCENT | `1` | Ignore ebook changes smaller than X% (Loop prevention)
+SYNC_DELTA_KOSYNC_WORDS | `400` | Ignore ebook changes smaller than 400 words [converted to chars](https://charactercounter.com/characters-to-words) - Refer [#12](https://github.com/J-Lich/abs-kosync-bridge/issues/12)
 FUZZY_MATCH_THRESHOLD | `80` | Confidence score (0-100) required for fuzzy matching
 KOSYNC_HASH_METHOD | `content` | content (Recommended/KOReader default) or filename (Legacy)
 LOG_LEVEL | INFO | Log level. DEBUG if raising an issue
