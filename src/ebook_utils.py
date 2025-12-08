@@ -308,5 +308,5 @@ class EbookParser:
             logger.error(f"Book file not found: {filename}")
             return None
         except Exception as e:
-            logger.error(f"Error extracting text from {filename}: {e}")
+            logger.error(f"Error calculating character delta for {filename}: {e}")
             return None
