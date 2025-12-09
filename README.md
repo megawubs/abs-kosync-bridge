@@ -93,8 +93,9 @@ services:
       - ./bridge_data:/data
 ```
 
+### 2. Docker Build
 <details>
-<summary> 2. Docker Build </summary>
+<summary> The included Dockerfile provides the ability to build from source. </summary>
 
 #### Download the project
    `git clone https://github.com/j-lich/abs-kosync-bridge.git`
@@ -149,10 +150,9 @@ services:
 ```
 </details>
 
+### 3. Docker Compose (Full Stack Example)
 <details>
-<summary> 3. Docker Compose (Full Stack Example) </summary>
-
-The included docker-compose.yml provides a full example stack.
+<summary> The included docker-compose.yml provides a full example stack. </summary>
 
 ```yml
 services:
